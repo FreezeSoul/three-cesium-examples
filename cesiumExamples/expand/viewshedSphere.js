@@ -3,7 +3,7 @@ import * as dat from 'dat.gui';
 
 const box = document.getElementById('box');
 
-(function () {
+const ViewShedAnalyser = (() => {
     const defined = Cesium.defined;
     const defaultValue = Cesium.defaultValue;
 
@@ -100,13 +100,11 @@ const box = document.getElementById('box');
     const ViewshedMap = (function () {
         const BoundingRectangle = Cesium.BoundingRectangle;
         const BoundingSphere = Cesium.BoundingSphere;
-        const BoxOutlineGeometry = Cesium.BoxOutlineGeometry;
         const Cartesian2 = Cesium.Cartesian2;
         const Cartesian3 = Cesium.Cartesian3;
         const Cartesian4 = Cesium.Cartesian4;
         const Cartographic = Cesium.Cartographic;
         const Color = Cesium.Color;
-        const ColorGeometryInstanceAttribute = Cesium.ColorGeometryInstanceAttribute;
         const combine = Cesium.combine;
         const CullingVolume = Cesium.CullingVolume;
         const defaultValue = Cesium.defaultValue;
@@ -115,15 +113,12 @@ const box = document.getElementById('box');
         const destroyObject = Cesium.destroyObject;
         const DeveloperError = Cesium.DeveloperError;
         const FeatureDetection = Cesium.FeatureDetection;
-        const GeometryInstance = Cesium.GeometryInstance;
         const Intersect = Cesium.Intersect;
         const CesiumMath = Cesium.Math;
         const Matrix4 = Cesium.Matrix4;
         const OrthographicOffCenterFrustum = Cesium.OrthographicOffCenterFrustum;
         const PerspectiveFrustum = Cesium.PerspectiveFrustum;
         const PixelFormat = Cesium.PixelFormat;
-        const Quaternion = Cesium.Quaternion;
-        const SphereOutlineGeometry = Cesium.SphereOutlineGeometry;
         const WebGLConstants = Cesium.WebGLConstants;
         const ClearCommand = Cesium.ClearCommand;
         const ContextLimits = Cesium.ContextLimits;
@@ -143,42 +138,9 @@ const box = document.getElementById('box');
         const TextureWrap = Cesium.TextureWrap;
         const Camera = Cesium.Camera;
         const CullFace = Cesium.CullFace;
-        const DebugCameraPrimitive = Cesium.DebugCameraPrimitive;
-        const PerInstanceColorAppearance = Cesium.PerInstanceColorAppearance;
-        const Primitive = Cesium.Primitive;
         const ShadowMapShader = Cesium.ShadowMapShader;
         const ShaderSource = Cesium.ShaderSource;
 
-        /**
-         * Use {@link Viewer#shadowMap} to get the scene's shadow map originating from the sun. Do not construct this directly.
-         *
-         * <p>
-         * The normalOffset bias pushes the shadows forward slightly, and may be disabled
-         * for applications that require ultra precise shadows.
-         * </p>
-         *
-         * @alias ViewshedMap
-         * @private
-         * @internalConstructor
-         * @class
-         *
-         * @param {Object} options An object containing the following properties:
-         * @param {Camera} options.lightCamera A camera representing the light source.
-         * @param {Boolean} [options.enabled=true] Whether the shadow map is enabled.
-         * @param {Boolean} [options.isPointLight=false] Whether the light source is a point light. Point light shadows do not use cascades.
-         * @param {Boolean} [options.pointLightRadius=100.0] Radius of the point light.
-         * @param {Boolean} [options.cascadesEnabled=true] Use multiple shadow maps to cover different partitions of the view frustum.
-         * @param {Number} [options.numberOfCascades=4] The number of cascades to use for the shadow map. Supported values are one and four.
-         * @param {Number} [options.maximumDistance=5000.0] The maximum distance used for generating cascaded shadows. Lower values improve shadow quality.
-         * @param {Number} [options.size=2048] The width and height, in pixels, of each shadow map.
-         * @param {Boolean} [options.softShadows=false] Whether percentage-closer-filtering is enabled for producing softer shadows.
-         * @param {Number} [options.darkness=0.3] The shadow darkness.
-         * @param {Boolean} [options.normalOffset=true] Whether a normal bias is applied to shadows.
-         *
-         * @exception {DeveloperError} Only one or four cascades are supported.
-         *
-         * @demo {@link https://cesiumjs.org/Cesium/Apps/Sandcastle/index.html?src=Shadows.html|Cesium Sandcastle Shadows Demo}
-         */
         function ViewshedMap(options) {
             options = defaultValue(options, defaultValue.EMPTY_OBJECT);
             // options.context is an undocumented option
@@ -333,14 +295,7 @@ const box = document.getElementById('box');
                 this._passes[i] = new ShadowPass(context);
             }
 
-            this.debugShow = false;
-            this.debugFreezeFrame = false;
-            this._debugFreezeFrame = false;
             this._debugCascadeColors = false;
-            this._debugLightFrustum = undefined;
-            this._debugCameraFrustum = undefined;
-            this._debugCascadeFrustums = new Array(this._numberOfCascades);
-            this._debugShadowViewCommand = undefined;
 
             this._usesDepthTexture = context.depthTexture;
 
@@ -414,13 +369,6 @@ const box = document.getElementById('box');
             shadowMap._terrainRenderState = createRenderState(colorMask, shadowMap._terrainBias);
             shadowMap._pointRenderState = createRenderState(colorMask, shadowMap._pointBias);
         }
-
-        /**
-         * @private
-         */
-        ViewshedMap.prototype.debugCreateRenderStates = function () {
-            createRenderStates(this);
-        };
 
         defineProperties(ViewshedMap.prototype, {
             /**
@@ -816,121 +764,6 @@ const box = document.getElementById('box');
             }
         }
 
-        var scratchViewport = new BoundingRectangle();
-
-        function createDebugShadowViewCommand(shadowMap, context) {
-            var fs;
-            if (shadowMap._isPointLight) {
-                fs =
-                    "uniform samplerCube shadowMap_textureCube; \n" +
-                    "in vec2 v_textureCoordinates; \n" +
-                    "void main() \n" +
-                    "{ \n" +
-                    "    vec2 uv = v_textureCoordinates; \n" +
-                    "    vec3 dir; \n" +
-                    " \n" +
-                    "    if (uv.y < 0.5) \n" +
-                    "    { \n" +
-                    "        if (uv.x < 0.333) \n" +
-                    "        { \n" +
-                    "            dir.x = -1.0; \n" +
-                    "            dir.y = uv.x * 6.0 - 1.0; \n" +
-                    "            dir.z = uv.y * 4.0 - 1.0; \n" +
-                    "        } \n" +
-                    "        else if (uv.x < 0.666) \n" +
-                    "        { \n" +
-                    "            dir.y = -1.0; \n" +
-                    "            dir.x = uv.x * 6.0 - 3.0; \n" +
-                    "            dir.z = uv.y * 4.0 - 1.0; \n" +
-                    "        } \n" +
-                    "        else \n" +
-                    "        { \n" +
-                    "            dir.z = -1.0; \n" +
-                    "            dir.x = uv.x * 6.0 - 5.0; \n" +
-                    "            dir.y = uv.y * 4.0 - 1.0; \n" +
-                    "        } \n" +
-                    "    } \n" +
-                    "    else \n" +
-                    "    { \n" +
-                    "        if (uv.x < 0.333) \n" +
-                    "        { \n" +
-                    "            dir.x = 1.0; \n" +
-                    "            dir.y = uv.x * 6.0 - 1.0; \n" +
-                    "            dir.z = uv.y * 4.0 - 3.0; \n" +
-                    "        } \n" +
-                    "        else if (uv.x < 0.666) \n" +
-                    "        { \n" +
-                    "            dir.y = 1.0; \n" +
-                    "            dir.x = uv.x * 6.0 - 3.0; \n" +
-                    "            dir.z = uv.y * 4.0 - 3.0; \n" +
-                    "        } \n" +
-                    "        else \n" +
-                    "        { \n" +
-                    "            dir.z = 1.0; \n" +
-                    "            dir.x = uv.x * 6.0 - 5.0; \n" +
-                    "            dir.y = uv.y * 4.0 - 3.0; \n" +
-                    "        } \n" +
-                    "    } \n" +
-                    " \n" +
-                    "    float shadow = czm_unpackDepth(texture(shadowMap_textureCube, dir)); \n" +
-                    "    out_FragColor = vec4(vec3(shadow), 1.0); \n" +
-                    "} \n";
-            } else {
-                fs =
-                    "uniform sampler2D shadowMap_texture; \n" +
-                    "in vec2 v_textureCoordinates; \n" +
-                    "void main() \n" +
-                    "{ \n" +
-                    (shadowMap._usesDepthTexture ?
-                        "    float shadow = texture(shadowMap_texture, v_textureCoordinates).r; \n" :
-                        "    float shadow = czm_unpackDepth(texture(shadowMap_texture, v_textureCoordinates)); \n") +
-                    "    out_FragColor = vec4(vec3(shadow), 1.0); \n" +
-                    "} \n";
-            }
-
-            var drawCommand = context.createViewportQuadCommand(fs, {
-                uniformMap: {
-                    shadowMap_texture: function () {
-                        return shadowMap._shadowMapTexture;
-                    },
-                    shadowMap_textureCube: function () {
-                        return shadowMap._shadowMapTexture;
-                    }
-                }
-            });
-            drawCommand.pass = Pass.OVERLAY;
-            return drawCommand;
-        }
-
-        function updateDebugShadowViewCommand(shadowMap, frameState) {
-            // Draws the shadow map on the bottom-right corner of the screen
-            var context = frameState.context;
-            var screenWidth = frameState.context.drawingBufferWidth;
-            var screenHeight = frameState.context.drawingBufferHeight;
-            var size = Math.min(screenWidth, screenHeight) * 0.3;
-
-            var viewport = scratchViewport;
-            viewport.x = screenWidth - size;
-            viewport.y = 0;
-            viewport.width = size;
-            viewport.height = size;
-
-            var debugCommand = shadowMap._debugShadowViewCommand;
-            if (!defined(debugCommand)) {
-                debugCommand = createDebugShadowViewCommand(shadowMap, context);
-                shadowMap._debugShadowViewCommand = debugCommand;
-            }
-
-            // Get a new RenderState for the updated viewport size
-            if (!defined(debugCommand.renderState) || !BoundingRectangle.equals(debugCommand.renderState.viewport, viewport)) {
-                debugCommand.renderState = RenderState.fromCache({
-                    viewport: BoundingRectangle.clone(viewport)
-                });
-            }
-
-            frameState.commandList.push(shadowMap._debugShadowViewCommand);
-        }
-
         var frustumCornersNDC = new Array(8);
         frustumCornersNDC[0] = new Cartesian4(-1.0, -1.0, -1.0, 1.0);
         frustumCornersNDC[1] = new Cartesian4(1.0, -1.0, -1.0, 1.0);
@@ -945,117 +778,6 @@ const box = document.getElementById('box');
         var scratchFrustumCorners = new Array(8);
         for (var i = 0; i < 8; ++i) {
             scratchFrustumCorners[i] = new Cartesian4();
-        }
-
-        function createDebugPointLight(modelMatrix, color) {
-            var box = new GeometryInstance({
-                geometry: new BoxOutlineGeometry({
-                    minimum: new Cartesian3(-0.5, -0.5, -0.5),
-                    maximum: new Cartesian3(0.5, 0.5, 0.5)
-                }),
-                attributes: {
-                    color: ColorGeometryInstanceAttribute.fromColor(color)
-                }
-            });
-
-            var sphere = new GeometryInstance({
-                geometry: new SphereOutlineGeometry({
-                    radius: 0.5
-                }),
-                attributes: {
-                    color: ColorGeometryInstanceAttribute.fromColor(color)
-                }
-            });
-
-            return new Primitive({
-                geometryInstances: [box, sphere],
-                appearance: new PerInstanceColorAppearance({
-                    translucent: false,
-                    flat: true
-                }),
-                asynchronous: false,
-                modelMatrix: modelMatrix
-            });
-        }
-
-        var debugOutlineColors = [Color.RED, Color.GREEN, Color.BLUE, Color.MAGENTA];
-        var scratchScale = new Cartesian3();
-
-        function applyDebugSettings(shadowMap, frameState) {
-            updateDebugShadowViewCommand(shadowMap, frameState);
-
-            var enterFreezeFrame = shadowMap.debugFreezeFrame && !shadowMap._debugFreezeFrame;
-            shadowMap._debugFreezeFrame = shadowMap.debugFreezeFrame;
-
-            // Draw scene camera in freeze frame mode
-            if (shadowMap.debugFreezeFrame) {
-                if (enterFreezeFrame) {
-                    // Recreate debug camera when entering freeze frame mode
-                    shadowMap._debugCameraFrustum = shadowMap._debugCameraFrustum && shadowMap._debugCameraFrustum.destroy();
-                    shadowMap._debugCameraFrustum = new DebugCameraPrimitive({
-                        camera: shadowMap._sceneCamera,
-                        color: Color.CYAN,
-                        updateOnChange: false
-                    });
-                }
-                shadowMap._debugCameraFrustum.update(frameState);
-            }
-
-            if (shadowMap._cascadesEnabled) {
-                // Draw cascades only in freeze frame mode
-                if (shadowMap.debugFreezeFrame) {
-                    if (enterFreezeFrame) {
-                        // Recreate debug frustum when entering freeze frame mode
-                        shadowMap._debugLightFrustum = shadowMap._debugLightFrustum && shadowMap._debugLightFrustum.destroy();
-                        shadowMap._debugLightFrustum = new DebugCameraPrimitive({
-                            camera: shadowMap._shadowMapCamera,
-                            color: Color.YELLOW,
-                            updateOnChange: false
-                        });
-                    }
-                    shadowMap._debugLightFrustum.update(frameState);
-
-                    for (var i = 0; i < shadowMap._numberOfCascades; ++i) {
-                        if (enterFreezeFrame) {
-                            // Recreate debug frustum when entering freeze frame mode
-                            shadowMap._debugCascadeFrustums[i] =
-                                shadowMap._debugCascadeFrustums[i] && shadowMap._debugCascadeFrustums[i].destroy();
-                            shadowMap._debugCascadeFrustums[i] = new DebugCameraPrimitive({
-                                camera: shadowMap._passes[i].camera,
-                                color: debugOutlineColors[i],
-                                updateOnChange: false
-                            });
-                        }
-                        shadowMap._debugCascadeFrustums[i].update(frameState);
-                    }
-                }
-            } else if (shadowMap._isPointLight) {
-                if (!defined(shadowMap._debugLightFrustum) || shadowMap._needsUpdate) {
-                    var translation = shadowMap._shadowMapCamera.positionWC;
-                    var rotation = Quaternion.IDENTITY;
-                    var uniformScale = shadowMap._pointLightRadius * 2.0;
-                    var scale = Cartesian3.fromElements(uniformScale, uniformScale, uniformScale, scratchScale);
-                    var modelMatrix = Matrix4.fromTranslationQuaternionRotationScale(
-                        translation,
-                        rotation,
-                        scale,
-                        scratchMatrix
-                    );
-
-                    shadowMap._debugLightFrustum = shadowMap._debugLightFrustum && shadowMap._debugLightFrustum.destroy();
-                    shadowMap._debugLightFrustum = createDebugPointLight(modelMatrix, Color.YELLOW);
-                }
-                shadowMap._debugLightFrustum.update(frameState);
-            } else {
-                if (!defined(shadowMap._debugLightFrustum) || shadowMap._needsUpdate) {
-                    shadowMap._debugLightFrustum = new DebugCameraPrimitive({
-                        camera: shadowMap._shadowMapCamera,
-                        color: Color.YELLOW,
-                        updateOnChange: false
-                    });
-                }
-                shadowMap._debugLightFrustum.update(frameState);
-            }
         }
 
         function ShadowMapCamera() {
@@ -1516,9 +1238,6 @@ const box = document.getElementById('box');
                 Matrix4.multiply(this._shadowMapCamera.getViewProjection(), inverseView, this._shadowMapMatrix);
             }
 
-            if (this.debugShow) {
-                applyDebugSettings(this, frameState);
-            }
         };
 
         /**
@@ -1945,18 +1664,6 @@ const box = document.getElementById('box');
          */
         ViewshedMap.prototype.destroy = function () {
             destroyFramebuffer(this);
-
-            this._debugLightFrustum = this._debugLightFrustum && this._debugLightFrustum.destroy();
-            this._debugCameraFrustum = this._debugCameraFrustum && this._debugCameraFrustum.destroy();
-            this._debugShadowViewCommand =
-                this._debugShadowViewCommand &&
-                this._debugShadowViewCommand.shaderProgram &&
-                this._debugShadowViewCommand.shaderProgram.destroy();
-
-            for (var i = 0; i < this._numberOfCascades; ++i) {
-                this._debugCascadeFrustums[i] = this._debugCascadeFrustums[i] && this._debugCascadeFrustums[i].destroy();
-            }
-
             return destroyObject(this);
         };
         return ViewshedMap;
@@ -3074,40 +2781,12 @@ const box = document.getElementById('box');
         return RectangularSensorPrimitive;
     })();
 
-    const CesiumMath = Cesium.Math;
-
-    function getHeading(direction, up) {
-        let heading;
-        if (!CesiumMath.equalsEpsilon(Math.abs(direction.z), 1.0, CesiumMath.EPSILON3)) {
-            heading = Math.atan2(direction.y, direction.x) - CesiumMath.PI_OVER_TWO;
-        } else {
-            heading = Math.atan2(up.y, up.x) - CesiumMath.PI_OVER_TWO;
-        }
-
-        return CesiumMath.TWO_PI - CesiumMath.zeroToTwoPi(heading);
-    }
-
-    function getPitch(direction) {
-        return CesiumMath.PI_OVER_TWO - CesiumMath.acosClamped(direction.z);
-    }
-
-    function getRoll(direction, up, right) {
-        let roll = 0.0;
-        if (!CesiumMath.equalsEpsilon(Math.abs(direction.z), 1.0, CesiumMath.EPSILON3)) {
-            roll = Math.atan2(-right.z, up.z);
-            roll = CesiumMath.zeroToTwoPi(roll + CesiumMath.TWO_PI);
-        }
-
-        return roll;
-    }
-
     class ViewShedAnalyser {
         constructor(viewer, options) {
             options = defaultValue(options, {});
             if (!(viewer && viewer instanceof Cesium.Viewer)) {
                 throw new ViewshedError('Expected viewer to be typeof Viewer, actual typeof was ' + typeof viewer);
             }
-            this.options = options;
             this._viewer = viewer;
             this._options = options;
 
@@ -3132,13 +2811,6 @@ const box = document.getElementById('box');
                 this._observe,
                 new Cesium.Cartesian3()
             );
-            this._heading = undefined;
-            this._pitch = undefined;
-            this._roll = undefined;
-        }
-
-        do() {
-            this.update();
         }
 
         clear() {
@@ -3165,6 +2837,15 @@ const box = document.getElementById('box');
             return this._frustum;
         }
 
+        setProperty(name, value) {
+            if (this[name] === value) {
+                return;
+            }
+
+            this[name] = value;
+            this.update();
+        }
+
         get debug() {
             return this._debug;
         }
@@ -3183,10 +2864,7 @@ const box = document.getElementById('box');
         }
 
         set observe(val) {
-            if (this._observe !== val) {
-                this._observe = val;
-                this.update();
-            }
+            this.setProperty('_observe', val);
         }
 
         get viewPosition() {
@@ -3194,10 +2872,7 @@ const box = document.getElementById('box');
         }
 
         set viewPosition(val) {
-            if (this._viewPosition !== val) {
-                this._viewPosition = val;
-                this.update();
-            }
+            this.setProperty('_viewPosition', val);
         }
 
         get direction() {
@@ -3209,10 +2884,7 @@ const box = document.getElementById('box');
         }
 
         set far(val) {
-            if (this._far !== val) {
-                this._far = val;
-                this.update();
-            }
+            this.setProperty('_far', val);
         }
 
         get near() {
@@ -3220,10 +2892,7 @@ const box = document.getElementById('box');
         }
 
         set near(val) {
-            if (this._near !== val) {
-                this._near = val;
-                this.update();
-            }
+            this.setProperty('_near', val);
         }
 
         get fov() {
@@ -3231,10 +2900,7 @@ const box = document.getElementById('box');
         }
 
         set fov(val) {
-            if (this._fov !== val) {
-                this._fov = val;
-                this.update();
-            }
+            this.setProperty('_fov', val);
         }
 
         get aspectRatio() {
@@ -3242,34 +2908,16 @@ const box = document.getElementById('box');
         }
 
         set aspectRatio(val) {
-            if (this._aspectRatio !== val) {
-                this._aspectRatio = val;
-                this.update();
-            }
-        }
-
-        get heading() {
-            this.updateHeadingPitchRoll();
-            return Cesium.Math.toDegrees(this._heading);
-        }
-
-        get pitch() {
-            this.updateHeadingPitchRoll();
-            return Cesium.Math.toDegrees(this._pitch);
-        }
-
-        get roll() {
-            this.updateHeadingPitchRoll();
-            return Cesium.Math.toDegrees(this._roll);
+            this.setProperty('_aspectRatio', val);
         }
 
         update() {
-            this.createOrupdateCamera();
+            this.createOrUpdateCamera();
             this.createOrUpdateFrustum();
             this.createOrUpdateShadowMap();
         }
 
-        createOrupdateCamera() {
+        createOrUpdateCamera() {
             if (!defined(this._viewCamera)) {
                 this._viewCamera = new Cesium.Camera(this._viewer.scene);
             }
@@ -3286,27 +2934,9 @@ const box = document.getElementById('box');
                 this._viewCamera.direction,
                 new Cesium.Cartesian3()
             );
-
-            if (!defined(this._heading) && !defined(this._pitch) && !defined(this._roll)) {
-                this.updateHeadingPitchRoll();
-            }
         }
 
-        updateHeadingPitchRoll() {
-            const oldTransform = Cesium.Matrix4.clone(this._viewCamera._transform, new Cesium.Matrix4());
-            const transform = Cesium.Transforms.eastNorthUpToFixedFrame(
-                this._viewCamera.positionWC,
-                this._viewCamera._projection.ellipsoid
-            );
-
-            this._viewCamera._setTransform(transform);
-            this._pitch = getPitch(this._viewCamera.direction);
-            this._heading = getHeading(this._viewCamera.direction, this._viewCamera.up);
-            this._roll = getRoll(this._viewCamera.direction, this._viewCamera.up, this._viewCamera.right);
-            this._viewCamera._setTransform(oldTransform);
-        }
-
-        rotateLeft(angle) {
+        rotateCamera(angle, method) {
             const oldTransform = Cesium.Matrix4.clone(this._viewCamera._transform, new Cesium.Matrix4());
             const transform = Cesium.Transforms.eastNorthUpToFixedFrame(
                 this._viewCamera.position,
@@ -3314,10 +2944,14 @@ const box = document.getElementById('box');
             );
 
             this._viewCamera._setTransform(transform);
-            this._viewCamera.rotateLeft(Cesium.Math.toRadians(angle));
+            this._viewCamera[method](Cesium.Math.toRadians(angle));
             this._viewCamera._setTransform(oldTransform);
             Cesium.Cartesian3.clone(this._viewCamera.directionWC, this._direction);
             this.update();
+        }
+
+        rotateLeft(angle) {
+            this.rotateCamera(angle, 'rotateLeft');
         }
 
         rotateRight(angle) {
@@ -3325,17 +2959,7 @@ const box = document.getElementById('box');
         }
 
         rotateDown(angle) {
-            const oldTransform = Cesium.Matrix4.clone(this._viewCamera._transform, new Cesium.Matrix4());
-            const transform = Cesium.Transforms.eastNorthUpToFixedFrame(
-                this._viewCamera.position,
-                this._viewCamera._projection.ellipsoid
-            );
-
-            this._viewCamera._setTransform(transform);
-            this._viewCamera.rotateDown(Cesium.Math.toRadians(angle));
-            this._viewCamera._setTransform(oldTransform);
-            Cesium.Cartesian3.clone(this._viewCamera.directionWC, this._direction);
-            this.update();
+            this.rotateCamera(angle, 'rotateDown');
         }
 
         rotateUp(angle) {
@@ -3394,23 +3018,18 @@ const box = document.getElementById('box');
                 return undefined;
             }
 
-            const options = this._options;
-            options.lightCamera = this._viewCamera;
-            options.context = this._viewer.scene.context;
-
-            const shadowMap = new ViewshedMap(options);
+            const shadowMap = new ViewshedMap({
+                ...this._options,
+                lightCamera: this._viewCamera,
+                context: this._viewer.scene.context
+            });
             const primitive = new ViewShadowPrimitive(shadowMap);
             this._shadowMap = this._viewer.scene.primitives.add(primitive);
             return this._shadowMap;
         }
     }
-    window.ViewShedAnalyser = ViewShedAnalyser;
-    window.RectangularSensorPrimitive = RectangularSensorPrimitive;
-    window.ViewshedMap = ViewshedMap;
-    window.ViewShadowPrimitive = ViewShadowPrimitive;
+    return ViewShedAnalyser;
 })();
-
-const { ViewShedAnalyser } = window
 
 const TILESET_URL = FILE_HOST + '3dtiles/house/tileset.json'
 const viewer = new Cesium.Viewer(box, {
@@ -3433,87 +3052,17 @@ const viewer = new Cesium.Viewer(box, {
 
 viewer.scene.globe.depthTestAgainstTerrain = true
 
-function roundNumber(value, digits = 6) {
-    return Number(value.toFixed(digits))
-}
+const tileset = await Cesium.Cesium3DTileset.fromUrl(TILESET_URL)
+viewer.scene.primitives.add(tileset)
+await viewer.flyTo(tileset)
 
-function getCameraViewInfo() {
-    const camera = viewer.camera
-    const cartographic = Cesium.Cartographic.fromCartesian(camera.positionWC)
-
-    return {
-        longitude: roundNumber(Cesium.Math.toDegrees(cartographic.longitude), 12),
-        latitude: roundNumber(Cesium.Math.toDegrees(cartographic.latitude), 12),
-        height: roundNumber(cartographic.height, 3),
-        heading: roundNumber(Cesium.Math.toDegrees(camera.heading), 6),
-        pitch: roundNumber(Cesium.Math.toDegrees(camera.pitch), 6),
-        roll: roundNumber(Cesium.Math.toDegrees(camera.roll), 6),
-        position: {
-            x: roundNumber(camera.positionWC.x, 3),
-            y: roundNumber(camera.positionWC.y, 3),
-            z: roundNumber(camera.positionWC.z, 3),
-        },
-        direction: {
-            x: roundNumber(camera.directionWC.x, 9),
-            y: roundNumber(camera.directionWC.y, 9),
-            z: roundNumber(camera.directionWC.z, 9),
-        },
-        up: {
-            x: roundNumber(camera.upWC.x, 9),
-            y: roundNumber(camera.upWC.y, 9),
-            z: roundNumber(camera.upWC.z, 9),
-        },
-    }
-}
-
-function createCameraFlyToCode(info) {
-    return `viewer.camera.flyTo({
-    destination: Cesium.Cartesian3.fromDegrees(${info.longitude}, ${info.latitude}, ${info.height}),
-    orientation: {
-        heading: Cesium.Math.toRadians(${info.heading}),
-        pitch: Cesium.Math.toRadians(${info.pitch}),
-        roll: Cesium.Math.toRadians(${info.roll}),
-    },
-})`
-}
-
-function logCameraView() {
-    const info = getCameraViewInfo()
-    const flyToCode = createCameraFlyToCode(info)
-
-    console.group('当前相机视角')
-    console.table([{
-        longitude: info.longitude,
-        latitude: info.latitude,
-        height: info.height,
-        heading: info.heading,
-        pitch: info.pitch,
-        roll: info.roll,
-    }])
-    console.log('Cartesian3:', info.position)
-    console.log('direction:', info.direction)
-    console.log('up:', info.up)
-    console.log('flyTo 代码:\n' + flyToCode)
-    console.groupEnd()
-
-    return { ...info, flyToCode }
-}
-
-window.logCameraView = logCameraView
-
-let tileset
-if (TILESET_URL) {
-    console.log(TILESET_URL, 'TILESET_URLTILESET_URL')
-    tileset = await Cesium.Cesium3DTileset.fromUrl(TILESET_URL)
-    viewer.scene.primitives.add(tileset)
-    await viewer.flyTo(tileset)
-} else {
-    viewer.camera.flyTo({
-        destination: Cesium.Cartesian3.fromDegrees(121.47857119758791, 29.79125471709178, 850),
-        orientation: {
-            heading: Cesium.Math.toRadians(175),
-            pitch: Cesium.Math.toRadians(-35),
-            roll: 0,
+function addPoint(position, color) {
+    return viewer.entities.add({
+        position,
+        point: {
+            pixelSize: 20,
+            clampToGround: true,
+            color,
         },
     })
 }
@@ -3524,86 +3073,75 @@ const observe = Cesium.Cartesian3.fromDegrees(
     29.79248487011,
     104.167
 )
-viewer.entities.add({
-    position: observe,
-    point: {
-        pixelSize: 20,
-        clampToGround: true,
-        color: Cesium.Color.GOLD,
-    },
-})
+addPoint(observe, Cesium.Color.GOLD)
 
 // 观察方向终点
 const view = Cesium.Cartesian3.fromDegrees(121.478780989946, 29.789676141017, 2.621)
-viewer.entities.add({
-    position: view,
-    point: {
-        pixelSize: 20,
-        clampToGround: true,
-        color: Cesium.Color.RED,
-    },
-})
+addPoint(view, Cesium.Color.RED)
 
-const viewshed = new ViewShedAnalyser(viewer, {
+const viewshedOptions = {
     observe,
     viewPosition: view,
-    size: 2048 * 2,
+    size: 4096,
     near: 1,
     fov: 120,
     aspectRatio: 1.5,
     debug: true,
-})
+}
 
-viewshed.do()
+const viewshed = new ViewShedAnalyser(viewer, viewshedOptions)
+
+viewshed.update()
 
 const far = viewshed.far
 const gui = new dat.GUI()
-let xRotation = 0
-let yRotation = 0
 const controls = {
-    near: 1,
+    near: viewshedOptions.near,
     far,
-    fov: 120,
-    heading: viewshed.heading,
-    pitch: viewshed.pitch,
-    debug: true,
-    xRotation,
-    yRotation,
-    vAngle: 120 / 1.5,
-    outputCameraView: logCameraView,
+    fov: viewshedOptions.fov,
+    debug: viewshedOptions.debug,
+    xRotation: 0,
+    yRotation: 0,
+    vAngle: viewshedOptions.fov / viewshedOptions.aspectRatio,
+}
+const rotation = {
+    x: 0,
+    y: 0,
 }
 
-gui.add(controls, 'near', 0.5, 2, 0.1).name('近截面').onChange(() => {
-    viewshed.near = controls.near
-})
-
-gui.add(controls, 'far', far - 100, far + 100, 1).name('远截面').onChange(() => {
-    viewshed.far = controls.far
-})
-
-gui.add(controls, 'fov', 60, 120, 1).name('水平夹角').onChange(() => {
-    viewshed.fov = controls.fov
+function updateAspectRatio() {
     viewshed.aspectRatio = controls.fov / controls.vAngle
+}
+
+function rotateByDelta(axis, value, rotate) {
+    const delta = value - rotation[axis]
+    rotate(delta)
+    rotation[axis] = value
+}
+
+gui.add(controls, 'near', 0.5, 2, 0.1).name('近截面').onChange((value) => {
+    viewshed.near = value
 })
 
-gui.add(controls, 'vAngle', 30, 90, 1).name('垂直夹角').onChange(() => {
-    viewshed.aspectRatio = viewshed.fov / controls.vAngle
+gui.add(controls, 'far', far - 100, far + 100, 1).name('远截面').onChange((value) => {
+    viewshed.far = value
 })
 
-gui.add(controls, 'xRotation', -45, 45, 1).name('水平方向旋转').onChange(() => {
-    const delta = controls.xRotation - xRotation
-    viewshed.rotateLeft(delta)
-    xRotation = controls.xRotation
+gui.add(controls, 'fov', 60, 120, 1).name('水平夹角').onChange((value) => {
+    viewshed.fov = value
+    updateAspectRatio()
 })
 
-gui.add(controls, 'yRotation', -45, 45, 1).name('垂直方向旋转').onChange(() => {
-    const delta = controls.yRotation - yRotation
-    viewshed.rotateUp(delta)
-    yRotation = controls.yRotation
+gui.add(controls, 'vAngle', 30, 90, 1).name('垂直夹角').onChange(updateAspectRatio)
+
+gui.add(controls, 'xRotation', -45, 45, 1).name('水平方向旋转').onChange((value) => {
+    rotateByDelta('x', value, (delta) => viewshed.rotateLeft(delta))
 })
 
-gui.add(controls, 'debug').name('调试').onChange(() => {
-    viewshed.debug = controls.debug
+gui.add(controls, 'yRotation', -45, 45, 1).name('垂直方向旋转').onChange((value) => {
+    rotateByDelta('y', value, (delta) => viewshed.rotateUp(delta))
 })
 
-gui.add(controls, 'outputCameraView').name('输出当前镜头')
+gui.add(controls, 'debug').name('调试').onChange((value) => {
+    viewshed.debug = value
+})
