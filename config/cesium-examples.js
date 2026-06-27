@@ -987,6 +987,19 @@ export default [
                 codeUrl: HOST + "cesiumExamples/expand/transportLine.js",
                 image: HOST + "cesiumExamples/expand/transportLine.jpg",
             },
+            {
+                id: "viewshedSphere",
+                name: "可视域分析-球面",
+                name_en: "ViewshedSphere",
+                author: "lv-Jis",
+                codeUrl: HOST + "cesiumExamples/expand/viewshedSphere.js",
+                image: HOST + "cesiumExamples/expand/viewshedSphere.jpg",
+                meta: {
+                    title: "可视域分析-球面",
+                    keywords: "cesium.js,可视域分析",
+                    description: "cesium 结合 可视域分析",
+                },
+            },
         ],
     },
     {
