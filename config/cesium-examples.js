@@ -772,6 +772,19 @@ export default [
                     description: "cesium体积云 光晕",
                 },
             },
+            {
+                id: "dynamicWater",
+                name: "cesium动态体积水",
+                name_en: "dynamicWater",
+                author: "lv-Jis",
+                image: HOST + "cesiumExamples/expand/dynamicWater.jpg",
+                codeUrl: HOST + "cesiumExamples/expand/dynamicWater.js",
+                meta: {
+                    title: "cesium动态体积水",
+                    keywords: "cesium动态体积水",
+                    description: "cesium动态体积水 效果",
+                },
+            },
         ],
     },
     {
