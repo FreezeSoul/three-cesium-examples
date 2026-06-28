@@ -547,6 +547,14 @@ export default [
                     keywords: "cesium.js,div元素绘制",
                 },
             },
+            {
+                id: 'boundBorder',
+                name: '边界框',
+                name_en: 'Bound Border',
+                author: 'z2586300277',
+                codeUrl: HOST + "cesiumExamples/basic/boundBorder.js",
+                image: HOST + "cesiumExamples/basic/boundBorder.webp"
+            }
         ],
     },
     {
