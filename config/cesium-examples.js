@@ -36,6 +36,15 @@ export default [
                 image: HOST + "threeExamples/openSource/cesiumPocket.webp",
             },
             {
+                id: "tellux",
+                tag: TEXTS["友情链接"],
+                name: "高质量Gis渲染 - 点⭐",
+                name_en: "Tellux Gis Rendering",
+                openUrl: 'https://cyanfish-x.github.io/tellux/',
+                githubUrl: 'https://github.com/cyanfish-x/tellux',
+                image: HOST + "cesiumExamples/openSource/tellux.webp",
+            },
+            {
                 id: "CesiumJsSamples",
                 name: "CesiumJS 例子",
                 name_en: "CesiumJS Samples",
